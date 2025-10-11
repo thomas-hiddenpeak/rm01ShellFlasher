@@ -1,0 +1,49 @@
+# 日志文件
+logs/
+*.log
+
+# 临时文件
+temp_*/
+*.tmp
+*.temp
+
+# 固件文件 (太大，用户自己下载)
+firmware/
+*.zip
+*.bin
+*.elf
+
+# robOS下载的临时目录
+temp_robos/
+
+# 挂载点临时目录
+/tmp/tf_mount_*
+/tmp/cfe_mount_*
+
+# 系统生成文件
+.DS_Store
+Thumbs.db
+*~
+*.swp
+*.swo
+
+# 编译产物
+*.o
+*.ko
+*.mod
+*.mod.c
+Module.symvers
+modules.order
+
+# 备份文件 (已清理，防止意外创建)
+sdcard_backup_*
+*_backup_*
+
+# IDE文件
+.vscode/
+.idea/
+*.code-workspace
+
+# 用户特定配置
+config.local
+*.local
