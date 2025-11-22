@@ -1384,7 +1384,7 @@ initialize_cfe_card() {
 
 # 获取TF卡信息
 get_tf_card_info() {
-    local disk="/dev/mmcblk1"
+    local disk="/dev/sda1"
     
     print_status "🔍 检测TF卡信息..."
     
@@ -1414,12 +1414,12 @@ get_tf_card_info() {
 
 # 卸载TF卡所有分区
 unmount_all_tf_partitions() {
-    local disk="/dev/mmcblk1"
+    local disk="/dev/sda1"
     
     print_status "🔧 卸载TF卡所有分区..."
     
-    # 获取所有相关分区 (mmcblk1p1, mmcblk1p2, etc.)
-    local partitions=$(lsblk -n -o NAME "$disk" | grep -v "^mmcblk1$" | sed 's/^/\/dev\//' || true)
+    # 获取所有相关分区 (sda1, sda2, etc.)
+    local partitions=$(lsblk -n -o NAME "$disk" | grep -v "^sda$" | sed 's/^/\/dev\//' || true)
     
     if [ -n "$partitions" ]; then
         echo "$partitions" | while read -r partition; do
@@ -1431,7 +1431,7 @@ unmount_all_tf_partitions() {
     fi
     
     # 强制卸载常见分区
-    for i in p1 p2 p3; do
+    for i in 1 2 3; do
         local partition="${disk}${i}"
         if mount | grep -q "$partition"; then
             print_status "强制卸载分区: $partition"
@@ -1445,7 +1445,7 @@ unmount_all_tf_partitions() {
 
 # 删除TF卡所有分区并创建新分区
 create_tf_partition() {
-    local disk="/dev/mmcblk1"
+    local disk="/dev/sda"
     
     print_status "🗑️  删除TF卡所有分区..."
     
@@ -1476,8 +1476,8 @@ EOF
 
 # 格式化TF卡并设置标签
 format_tf_card() {
-    local disk="/dev/mmcblk1"
-    local partition="${disk}p1"
+    local disk="/dev/sda"
+    local partition="${disk}1"
     
     print_status "🎨 格式化TF卡为FAT32并设置标签..."
     
@@ -1550,8 +1550,8 @@ download_sdcard_content() {
 
 # 复制文件到TF卡
 copy_files_to_tf_card() {
-    local disk="/dev/mmcblk1"
-    local partition="${disk}p1"
+    local disk="/dev/sda"
+    local partition="${disk}1"
     local sdcard_dir="$SCRIPT_DIR/sdcard"
     local mount_point="/tmp/tf_mount_$$"
     
@@ -1611,8 +1611,8 @@ copy_files_to_tf_card() {
 
 # 验证TF卡结果
 verify_tf_card() {
-    local disk="/dev/mmcblk1"
-    local partition="${disk}p1"
+    local disk="/dev/sda"
+    local partition="${disk}1"
     
     print_status "✅ 验证TF卡结果..."
     
