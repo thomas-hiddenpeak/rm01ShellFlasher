@@ -13,8 +13,8 @@ set -e  # 遇到错误时退出
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # 设备配置
-ESP_PORT="/dev/ttyCH343USB0"
-SERIAL_PORT="/dev/ttyCH343USB0"
+ESP_PORT="/dev/ttyACM0"
+SERIAL_PORT="/dev/ttyACM0"
 
 # L4T目录
 L4T_DIR="${L4T_DIR:-/home/rm01/nvidia/nvidia_sdk/JetPack_6.2.1_Linux_JETSON_AGX_ORIN_TARGETS/Linux_for_Tegra/}"
@@ -679,33 +679,14 @@ send_serial_command_with_echo() {
     local command="$1"
     local port="$2"
     local timeout="${3:-3}"
+    local skip_precheck="${4:-false}"  # 第4个参数：是否跳过预检测，默认false
     
     print_status "向串口 $port 发送命令: $command"
     
     # 创建临时文件存储回显
     local echo_file="/tmp/serial_echo_$$"
     
-    # 先测试是否有任何数据流
-    print_status "🔍 检测串口是否有数据流..."
-    timeout 2 cat "$port" > "$echo_file" &
-    local test_pid=$!
-    sleep 2
-    kill $test_pid 2>/dev/null || true
-    wait $test_pid 2>/dev/null || true
-    
-    if [ -f "$echo_file" ] && [ -s "$echo_file" ]; then
-        print_status "📡 检测到串口有数据流:"
-        echo -e "${CYAN}----------------------------------------${NC}"
-        cat "$echo_file"
-        echo -e "${CYAN}----------------------------------------${NC}"
-        rm -f "$echo_file"
-    else
-        print_warning "⚠️  串口暂无数据流，设备可能未开机或未连接"
-        if ! confirm_action "是否仍要发送命令？" "y"; then
-            rm -f "$echo_file"
-            return 1
-        fi
-    fi
+    print_status "📤 发送命令: $command"
     
     # 启动后台进程监听串口回显并保存到文件
     timeout $((timeout + 2)) cat "$port" > "$echo_file" &
@@ -714,7 +695,6 @@ send_serial_command_with_echo() {
     # 等待一下确保cat进程已启动
     sleep 0.5
     
-    print_status "📤 发送命令: $command"
     # 发送命令到串口（添加回车换行符）
     printf "%s\r\n" "$command" > "$port"
     
@@ -729,6 +709,7 @@ send_serial_command_with_echo() {
     if [ -f "$echo_file" ] && [ -s "$echo_file" ]; then
         print_status "📺 串口回显内容:"
         echo -e "${CYAN}----------------------------------------${NC}"
+        # 使用 cat -v 显示控制字符，或者使用 strings 过滤
         cat "$echo_file"
         echo -e "${CYAN}----------------------------------------${NC}"
         
@@ -738,17 +719,11 @@ send_serial_command_with_echo() {
         fi
     else
         print_warning "❌ 未捕获到串口回显"
-        print_error "🚨 串口通信失败！"
         print_status "📋 故障排除步骤："
         print_status "1. 确认RM-01设备已通电并开机"
         print_status "2. 检查串口线缆连接是否牢固"
         print_status "3. 确认设备正在监听串口命令"
-        print_status "4. 尝试使用串口调试工具(如minicom)手动测试"
-        print_status "5. 检查设备是否需要特定的唤醒命令"
-        print_status ""
-        print_status "🔧 手动测试命令："
-        print_status "  minicom -D /dev/ttyCH343USB0 -b 115200"
-        print_status "  然后手动输入: agx recovery"
+        print_status "4. 尝试手动测试串口通信"
     fi
     
     # 清理临时文件
@@ -765,7 +740,7 @@ send_serial_command() {
     
     print_status "向串口 $port 发送命令: $command"
     
-    # 使用printf发送命令到串口（添加回车换行符）
+    # 使用原生方式发送命令到串口（添加回车换行符）
     printf "%s\r\n" "$command" > "$port"
     
     print_status "等待 $timeout 秒..."
@@ -835,11 +810,23 @@ flash_agx() {
         print_status "Recovery尝试 $recovery_attempt/$max_recovery_attempts"
         print_status "即将重启ESP32S3并发送recovery命令"
         
-        if confirm_action "是否重启ESP32S3并发送 'agx recovery' 命令？" "y"; then
+        if confirm_action "是否配置USB多路复用器并发送 'agx recovery' 命令？" "y"; then
             print_separator
+            print_status "📡 配置USB多路复用器..."
+            
+            # 先发送 usbmux agx 命令（跳过预检测，因为设备可能静默）
+            print_status "发送 'usbmux agx' 命令"
+            send_serial_command_with_echo "usbmux agx" "$SERIAL_PORT" 2 true
+            sleep 1
+            
+            # 再发送 usbmux save 命令（跳过预检测）
+            print_status "发送 'usbmux save' 命令"
+            send_serial_command_with_echo "usbmux save" "$SERIAL_PORT" 2 true
+            sleep 1
+            
             print_status "🔄 重启ESP32S3..."
             
-            # 先发送重启命令
+            # 发送重启命令
             send_serial_command "reboot" "$SERIAL_PORT" 2
             
             print_status "⏳ 等待ESP32S3重启完成 (5秒)..."
