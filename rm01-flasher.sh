@@ -15,6 +15,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # 设备配置
 ESP_PORT="/dev/ttyACM0"
 SERIAL_PORT="/dev/ttyACM0"
+CFE_DISK="${CFE_DISK:-/dev/sda}"  # CFE卡设备，默认/dev/sdb，可通过环境变量覆盖
+TF_DISK="${TF_DISK:-/dev/sdb}"    # TF卡设备，默认/dev/sda，可通过环境变量覆盖
 
 # L4T目录
 L4T_DIR="${L4T_DIR:-/home/rm01/nvidia/nvidia_sdk/JetPack_6.2.1_Linux_JETSON_AGX_ORIN_TARGETS/Linux_for_Tegra/}"
@@ -911,7 +913,7 @@ flash_agx() {
 
 # 获取CFE卡信息
 get_cfe_card_info() {
-    local disk="/dev/sda"
+    local disk="$CFE_DISK"
     
     print_status "🔍 检测CFE卡信息..."
     
@@ -941,12 +943,13 @@ get_cfe_card_info() {
 
 # 卸载CFE卡所有分区
 unmount_all_cfe_partitions() {
-    local disk="/dev/sda"
+    local disk="$CFE_DISK"
+    local cfe_device=$(basename "$CFE_DISK")
     
     print_status "🔧 卸载CFE卡所有分区..."
     
     # 获取所有相关分区
-    local partitions=$(lsblk -n -o NAME "$disk" | grep -v "^sda$" | sed 's/^/\/dev\//' || true)
+    local partitions=$(lsblk -n -o NAME "$disk" | grep -v "^${cfe_device}$" | sed 's/^/\/dev\//' || true)
     
     if [ -n "$partitions" ]; then
         echo "$partitions" | while read -r partition; do
@@ -972,7 +975,7 @@ unmount_all_cfe_partitions() {
 
 # 删除CFE卡所有分区
 delete_all_partitions() {
-    local disk="/dev/sda"
+    local disk="$CFE_DISK"
     
     print_status "🗑️  删除CFE卡所有分区..."
     
@@ -992,7 +995,7 @@ EOF
 
 # 根据容量创建分区
 create_partitions_by_size() {
-    local disk="/dev/sda"
+    local disk="$CFE_DISK"
     local size_bytes=$(lsblk -b -n -o SIZE "$disk" 2>/dev/null | head -1)
     local size_gb=$((size_bytes / 1024 / 1024 / 1024))
     local partition_scheme=""
@@ -1103,7 +1106,7 @@ EOF
 
 # 格式化分区并设置标签
 format_and_label_partitions() {
-    local disk="/dev/sda"
+    local disk="$CFE_DISK"
     local partition_scheme="$1"
     
     print_status "🎨 格式化分区并设置标签..."
@@ -1200,7 +1203,7 @@ format_and_label_partitions() {
 
 # 验证分区结果
 verify_partitions() {
-    local disk="/dev/sda"
+    local disk="$CFE_DISK"
     local partition_scheme="$1"
     
     print_status "✅ 验证分区结果..."
@@ -1371,7 +1374,7 @@ initialize_cfe_card() {
 
 # 获取TF卡信息
 get_tf_card_info() {
-    local disk="/dev/sda1"
+    local disk="${TF_DISK}1"
     
     print_status "🔍 检测TF卡信息..."
     
@@ -1401,12 +1404,13 @@ get_tf_card_info() {
 
 # 卸载TF卡所有分区
 unmount_all_tf_partitions() {
-    local disk="/dev/sda1"
+    local disk="${TF_DISK}1"
+    local tf_device=$(basename "$TF_DISK")
     
     print_status "🔧 卸载TF卡所有分区..."
     
-    # 获取所有相关分区 (sda1, sda2, etc.)
-    local partitions=$(lsblk -n -o NAME "$disk" | grep -v "^sda$" | sed 's/^/\/dev\//' || true)
+    # 获取所有相关分区
+    local partitions=$(lsblk -n -o NAME "$disk" | grep -v "^${tf_device}$" | sed 's/^/\/dev\//' || true)
     
     if [ -n "$partitions" ]; then
         echo "$partitions" | while read -r partition; do
@@ -1432,7 +1436,7 @@ unmount_all_tf_partitions() {
 
 # 删除TF卡所有分区并创建新分区
 create_tf_partition() {
-    local disk="/dev/sda"
+    local disk="$CFE_DISK"
     
     print_status "🗑️  删除TF卡所有分区..."
     
@@ -1463,7 +1467,7 @@ EOF
 
 # 格式化TF卡并设置标签
 format_tf_card() {
-    local disk="/dev/sda"
+    local disk="$TF_DISK"
     local partition="${disk}1"
     
     print_status "🎨 格式化TF卡为FAT32并设置标签..."
@@ -1537,7 +1541,7 @@ download_sdcard_content() {
 
 # 复制文件到TF卡
 copy_files_to_tf_card() {
-    local disk="/dev/sda"
+    local disk="$CFE_DISK"
     local partition="${disk}1"
     local sdcard_dir="$SCRIPT_DIR/sdcard"
     local mount_point="/tmp/tf_mount_$$"
@@ -1598,7 +1602,7 @@ copy_files_to_tf_card() {
 
 # 验证TF卡结果
 verify_tf_card() {
-    local disk="/dev/sda"
+    local disk="$CFE_DISK"
     local partition="${disk}1"
     
     print_status "✅ 验证TF卡结果..."
@@ -1754,14 +1758,17 @@ flash_cfe_card() {
     sleep 3
     
     # 卸载磁盘挂载
-    unmount_disk "/dev/sda"
+    unmount_disk "$CFE_DISK"
     
     # 切换到L4T目录
     print_status "切换到L4T目录: $L4T_DIR"
     cd "$L4T_DIR"
     
+    # 提取CFE_DISK的设备名（去掉/dev/前缀）
+    local cfe_device=$(basename "$CFE_DISK")
+    
     # 构建刷机命令
-    local flash_command="sudo ./tools/kernel_flash/l4t_initrd_flash.sh --flash-only -c tools/kernel_flash/flash_l4t_t234_nvme.xml -k APP --external-device nvme0n1p1 --direct sda1 rm01-orin nvme0n1p1"
+    local flash_command="sudo ./tools/kernel_flash/l4t_initrd_flash.sh --flash-only -c tools/kernel_flash/flash_l4t_t234_nvme.xml -k APP --external-device nvme0n1p1 --direct ${cfe_device}1 rm01-orin nvme0n1p1"
     
     print_status "执行CFE卡刷机命令:"
     print_status "$flash_command"
@@ -1770,11 +1777,11 @@ flash_cfe_card() {
         print_success "CFE卡运行镜像刷写完成"
         
         # 再次卸载磁盘
-        unmount_disk "/dev/sda"
+        unmount_disk "$CFE_DISK"
         
         # 设置磁盘标签
         print_status "设置磁盘标签..."
-        if sudo e2label /dev/sda1 rm01rootfs; then
+        if sudo e2label ${CFE_DISK}1 rm01rootfs; then
             print_success "磁盘标签设置完成: rm01rootfs"
         else
             print_warning "磁盘标签设置失败，但刷机已完成"
