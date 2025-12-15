@@ -15,8 +15,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # 设备配置
 ESP_PORT="/dev/ttyACM0"
 SERIAL_PORT="/dev/ttyACM0"
-CFE_DISK="${CFE_DISK:-/dev/sda}"  # CFE卡设备，默认/dev/sdb，可通过环境变量覆盖
-TF_DISK="${TF_DISK:-/dev/sdb}"    # TF卡设备，默认/dev/sda，可通过环境变量覆盖
+CFE_DISK="${CFE_DISK:-/dev/sdc}"  # CFE卡设备，可通过环境变量覆盖
+TF_DISK="${TF_DISK:-/dev/sda}"    # TF卡设备，可通过环境变量覆盖
 
 # L4T目录
 L4T_DIR="${L4T_DIR:-/home/rm01/nvidia/nvidia_sdk/JetPack_6.2.1_Linux_JETSON_AGX_ORIN_TARGETS/Linux_for_Tegra/}"
@@ -1436,7 +1436,7 @@ unmount_all_tf_partitions() {
 
 # 删除TF卡所有分区并创建新分区
 create_tf_partition() {
-    local disk="$CFE_DISK"
+    local disk="$TF_DISK"
     
     print_status "🗑️  删除TF卡所有分区..."
     
@@ -1541,7 +1541,7 @@ download_sdcard_content() {
 
 # 复制文件到TF卡
 copy_files_to_tf_card() {
-    local disk="$CFE_DISK"
+    local disk="$TF_DISK"
     local partition="${disk}1"
     local sdcard_dir="$SCRIPT_DIR/sdcard"
     local mount_point="/tmp/tf_mount_$$"
@@ -1602,7 +1602,7 @@ copy_files_to_tf_card() {
 
 # 验证TF卡结果
 verify_tf_card() {
-    local disk="$CFE_DISK"
+    local disk="$TF_DISK"
     local partition="${disk}1"
     
     print_status "✅ 验证TF卡结果..."
