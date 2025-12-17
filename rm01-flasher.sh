@@ -15,7 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # 设备配置
 ESP_PORT="/dev/ttyACM0"
 SERIAL_PORT="/dev/ttyACM0"
-CFE_DISK="${CFE_DISK:-/dev/sdc}"  # CFE卡设备，可通过环境变量覆盖
+CFE_DISK="${CFE_DISK:-/dev/sdd}"  # CFE卡设备，可通过环境变量覆盖
 TF_DISK="${TF_DISK:-/dev/sda}"    # TF卡设备，可通过环境变量覆盖
 
 # L4T目录
@@ -483,7 +483,7 @@ initialize_esp32s3_parameters() {
     # 定义所有需要发送的命令
     local commands=(
         "lpmu config auto-start on"
-        "usbmux esp32s3"
+        "usbmux lpmu"
         "usbmux save"
         "net config set ip 10.10.99.97"
         "net config set gateway 10.10.99.100"
